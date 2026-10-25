@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -59,9 +60,72 @@ public class HomeKeyService extends AccessibilityService {
     /** Stops key filtering while a game controller is connected; null unless gamepad_passthrough and key_filter, or before the unlock. */
     private GamepadPassthrough gamepads;
 
+    /** The bound service, for the quick panel's Sleep timer; null while Android has it unbound. */
+    private static HomeKeyService running;
+
+    static HomeKeyService running() {
+        return running;
+    }
+
+    /** Sleep timer choices in minutes, cycled by the quick panel's row; 0 is off. */
+    static final int[] SLEEP_MINUTES = {0, 15, 30, 60, 90};
+    private int sleepChoice;
+    /** When the timer fires, in elapsedRealtime; 0 while it is off. */
+    private long sleepAt;
+    private final Runnable sleep = () -> {
+        cancelSleepTimer();
+        // The power key's job without a privileged permission: on Android TV, locking the screen puts the set in standby.
+        // Android 9 and up; on 8 the timer runs out and nothing happens.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN);
+    };
+    private boolean screenOffRegistered;
+    /** The TV went off some other way (the remote, sleep_timeout): a timer left running would fire after the next wake. */
+    private final BroadcastReceiver screenOff = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            cancelSleepTimer();
+        }
+    };
+
+    /** The next choice after the current one, Off after the longest; returns the minutes now set. */
+    int cycleSleepTimer() {
+        sleepChoice = (sleepChoice + 1) % SLEEP_MINUTES.length;
+        handler.removeCallbacks(sleep);
+        int minutes = SLEEP_MINUTES[sleepChoice];
+        sleepAt = minutes == 0 ? 0 : SystemClock.elapsedRealtime() + minutes * 60_000L;
+        if (minutes != 0) handler.postDelayed(sleep, minutes * 60_000L);
+        return minutes;
+    }
+
+    private void cancelSleepTimer() {
+        handler.removeCallbacks(sleep);
+        sleepChoice = 0;
+        sleepAt = 0;
+    }
+
+    /** Unbound or destroyed, whichever comes first: no timer outlives the service. */
+    private void stopSleepTimer() {
+        if (running == this) running = null;
+        cancelSleepTimer();
+        if (!screenOffRegistered) return;
+        screenOffRegistered = false;
+        unregisterReceiver(screenOff);
+    }
+
+    /** Whole minutes left, rounded up, or 0 while the timer is off. */
+    int sleepMinutesLeft() {
+        if (sleepAt == 0) return 0;
+        return (int) Math.max(1, (sleepAt - SystemClock.elapsedRealtime() + 59_999L) / 60_000L);
+    }
+
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
+        running = this;
+        if (!screenOffRegistered) {
+            registerReceiver(screenOff, new IntentFilter(Intent.ACTION_SCREEN_OFF));
+            screenOffRegistered = true;
+        }
         settingsScancodes = getResources().getIntArray(R.array.settings_key_scancodes);
         // The service is directBootAware: Android 11 skips a service that is not while the user is still
         // locked at boot, writes accessibility_enabled=0 and, on TCL G03 firmware, never binds it after the
@@ -94,6 +158,7 @@ public class HomeKeyService extends AccessibilityService {
 
     @Override
     public void onDestroy() {
+        stopSleepTimer();
         stopWaitingForUnlock();
         if (gamepads != null) gamepads.stop();
         super.onDestroy();
@@ -179,6 +244,7 @@ public class HomeKeyService extends AccessibilityService {
     /** Unbound by Android: the user turned the helper off, so Home doesn't put it back (ServiceRepair). */
     @Override
     public boolean onUnbind(Intent intent) {
+        stopSleepTimer();
         if (repairRecord) ServiceRepair.disconnected(this, getClass());
         return super.onUnbind(intent);
     }
