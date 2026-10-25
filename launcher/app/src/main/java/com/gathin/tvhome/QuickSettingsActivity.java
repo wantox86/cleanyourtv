@@ -75,9 +75,14 @@ public final class QuickSettingsActivity extends Activity {
     private void addSleepTimerRow(LinearLayout rows) {
         View row = getLayoutInflater().inflate(R.layout.item_input, rows, false);
         ((ImageView) row.findViewById(R.id.icon)).setImageResource(R.drawable.ic_timer);
-        ((TextView) row.findViewById(R.id.title)).setText(R.string.sleep_timer);
+        TextView title = row.findViewById(R.id.title);
+        title.setText(R.string.sleep_timer);
         row.findViewById(R.id.dot).setVisibility(View.GONE);
         TextView hint = row.findViewById(R.id.status);
+        // A value the row sets, not a hint: full-strength text, near the title's size, so it reads across the room.
+        hint.setTextColor(title.getTextColors());
+        hint.setTextSize(14);
+        hint.setTypeface(UiFont.get(this, R.string.font_medium));
         HomeKeyService service = HomeKeyService.running();
         showSleepTimer(hint, service == null ? 0 : service.sleepMinutesLeft());
         row.setOnClickListener(v -> {
