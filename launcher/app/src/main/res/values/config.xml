@@ -137,6 +137,9 @@
          evdev MSC_SCAN there, which is not always the scanCode the framework reports, so a number that takes
          nothing is no proof the press never arrived. Leave empty to omit. -->
     <integer-array name="settings_key_scancodes">
+        <!-- Xiaomi RC remote (MiTV-AXSO2): the Prime Video button sends evdev KEY_GREEN, scancode 399
+             (HID usage 0x000c006a), which the device keylayout leaves unmapped, so only the scancode identifies it. -->
+        <item>399</item>
     </integer-array>
     <!-- The same by Android keycode, for buttons whose scancode is shared. TCL Google TV remotes send their
          Settings button as keycode 83 (KEYCODE_NOTIFICATION, which the stock Google TV home turned into its quick
