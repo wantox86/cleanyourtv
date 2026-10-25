@@ -33,6 +33,7 @@ public final class QuickSettingsActivity extends Activity {
         // Through Home, so it rebuilds with the new choices when Launcher settings closes.
         addRow(rows, R.drawable.ic_home_settings, R.string.launcher_settings, 0,
                 new Intent(this, MainActivity.class).setAction(MainActivity.ACTION_LAUNCHER_SETTINGS));
+        addSleepTimerRow(rows);
         rows.getChildAt(0).requestFocus();
     }
 
@@ -68,5 +69,35 @@ public final class QuickSettingsActivity extends Activity {
             finish();
         });
         rows.addView(row);
+    }
+
+    /** Each press steps Off, 15, 30, 60, 90 minutes and keeps the panel open; HomeKeyService runs the countdown. */
+    private void addSleepTimerRow(LinearLayout rows) {
+        View row = getLayoutInflater().inflate(R.layout.item_input, rows, false);
+        ((ImageView) row.findViewById(R.id.icon)).setImageResource(R.drawable.ic_timer);
+        TextView title = row.findViewById(R.id.title);
+        title.setText(R.string.sleep_timer);
+        row.findViewById(R.id.dot).setVisibility(View.GONE);
+        TextView hint = row.findViewById(R.id.status);
+        // A value the row sets, not a hint: full-strength text, near the title's size, so it reads across the room.
+        hint.setTextColor(title.getTextColors());
+        hint.setTextSize(14);
+        hint.setTypeface(UiFont.get(this, R.string.font_medium));
+        HomeKeyService service = HomeKeyService.running();
+        showSleepTimer(hint, service == null ? 0 : service.sleepMinutesLeft());
+        row.setOnClickListener(v -> {
+            HomeKeyService running = HomeKeyService.running();
+            if (running == null) {
+                Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            showSleepTimer(hint, running.cycleSleepTimer());
+        });
+        rows.addView(row);
+    }
+
+    private void showSleepTimer(TextView hint, int minutes) {
+        if (minutes == 0) hint.setText(R.string.off);
+        else hint.setText(getString(R.string.sleep_timer_left, minutes));
     }
 }

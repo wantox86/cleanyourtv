@@ -86,6 +86,8 @@
     <string name="quick_network">רשת</string>
     <string name="quick_apps">אפליקציות</string>
     <string name="quick_apps_hint">הפעלת אפליקציות שהושבתו</string>
+    <string name="sleep_timer">טיימר שינה</string>
+    <string name="sleep_timer_left">עוד %1$d דק׳</string>
     <string name="dock_edit">עריכת שורת המועדפים</string>
     <string name="dock_edit_hint">בחרו מקום בשורת המועדפים ולחצו אישור. חזרה לסיום.</string>
     <string name="dock_edit_pick_app">עכשיו בחרו את האפליקציה שתופיע שם ולחצו אישור. חזרה לבחירת מקום אחר.</string>
